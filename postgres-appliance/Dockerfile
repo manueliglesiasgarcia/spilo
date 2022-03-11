@@ -302,10 +302,35 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     done \
 \
     # make it possible for cron to work without root
-    && gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c \
-\
+    && gcc -s -shared -fPIC -o /usr/local/lib/cron_unprivileged.so cron_unprivileged.c;
+    
+    # build and install the timescaledb-toolkit extension
+    ENV RUSTUP_HOME=/usr/local/rustup \
+        CARGO_HOME=/usr/local/cargo \
+        PATH=/usr/local/cargo/bin:$PATH \
+        RUST_VERSION=1.58.1 \
+        HOST_ARCH=x86_64-unknown-linux-gnu
+    ARG TIMESCALEDB_TOOLKIT_VERSION=1.5.2
+    ARG TIMESCALEDB_TOOLKIT=false
+    COPY install_timescaledb_toolkit.sh /build/
+    RUN mkdir -p /build/ && mkdir /root/.pgx
+    RUN if [ "${TIMESCALEDB_TOOLKIT}" = "true" ]; then \
+            set -eux; \
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path --profile minimal --default-toolchain ${RUST_VERSION} --default-host ${HOST_ARCH}; \
+            chmod -R a+w $RUSTUP_HOME $CARGO_HOME; \
+            rustup --version; \
+            cargo --version; \
+            rustc --version; \
+            apt-get update && apt-get install -y bc; \
+            git clone https://github.com/timescale/timescaledb-toolkit /build/timescaledb-toolkit; \
+            cd /build/timescaledb-toolkit  \
+            && for pg in ${DEB_PG_SUPPORTED_VERSIONS}; do \
+                /build/install_timescaledb_toolkit.sh ${pg} ${TIMESCALEDB_TOOLKIT_VERSION} || exit 1 ; \
+            done; \
+        fi
+
     # Remove unnecessary packages
-    && apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-all postgresql-server-dev-* libpq-dev=* libmagic1 bsdmainutils \
+    RUN apt-get purge -y ${BUILD_PACKAGES} postgresql postgresql-all postgresql-server-dev-* libpq-dev=* libmagic1 bsdmainutils \
     && apt-get autoremove -y \
     && apt-get clean \
     && dpkg -l | grep '^rc' | awk '{print $2}' | xargs apt-get purge -y \
