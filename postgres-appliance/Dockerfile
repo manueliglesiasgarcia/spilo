@@ -1,6 +1,6 @@
 ARG BASE_IMAGE=ubuntu:18.04
 ARG PGVERSION=14
-ARG TIMESCALEDB="1.7.5 2.3.1 2.6.0"
+ARG TIMESCALEDB="1.7.5 2.3.1 2.6.1"
 ARG DEMO=false
 ARG COMPRESS=false
 
@@ -74,8 +74,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         # install etcdctl
         && ETCDVERSION=3.3.27 \
         && curl -L https://github.com/coreos/etcd/releases/download/v${ETCDVERSION}/etcd-v${ETCDVERSION}-linux-$(dpkg --print-architecture).tar.gz \
-                | tar xz -C /bin --strip=1 --wildcards --no-anchored etcdctl etcd \
-        && chown root:root /bin/etcd*; \
+                | tar xz -C /bin --strip=1 --wildcards --no-anchored --no-same-owner etcdctl etcd; \
     fi \
 \
     # Cleanup all locales but en_US.UTF-8 and optionally specified in ADDITIONAL_LOCALES arg
